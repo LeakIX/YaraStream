@@ -6,17 +6,11 @@ Limited Yara/ClamAV demo compatible with `io.TeeReader` for streaming
 
 All requirements from [github.com/hillu/go-yara](https://github.com/hillu/go-yara) apply
 
-## Limitations
-
-### No seeking
-
-Yara wants to seek back to 0 (or other locations) all the time which is incompatible with streaming.
-
-This library uses a buffer with a configurable size, file above this size will not be matched.
+## Implementation
 
 ### Must implement WriteCloser
 
-When using a Tee reader, the `TeeReaderAutoClose` must be used so the scanner does its job on `io.EOF`.
+When using a Tee reader, the `TeeReaderAutoClose` should be used to clean resources.
 
 Make sure to call `Close()` if you're doing a custom implementation.
 
@@ -60,7 +54,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	yaraWriter := scanner.NewYaraWriter(10 * 1024 * 1024)
+	yaraWriter := scanner.NewYaraWriter()
 	sha256Hasher := sha256.New()
 	sha1Hasher := sha1.New()
 	sha256Tee := io.TeeReader(file, sha256Hasher)

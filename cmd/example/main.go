@@ -35,7 +35,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	yaraWriter := scanner.NewYaraWriter(10 * 1024 * 1024)
+	yaraWriter := scanner.NewYaraWriter()
 	sha256Hasher := sha256.New()
 	sha1Hasher := sha1.New()
 	sha256Tee := io.TeeReader(file, sha256Hasher)
