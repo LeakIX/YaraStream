@@ -1,6 +1,6 @@
-_# Yara/ClamAV Combo
+# Yara/ClamAV Combo
 
-Limited Yara/ClamAV demo compatible with `io.TeeReader` for streaming
+Yara scanner library compatible with `io.TeeReader` for streaming
 
 ## Requirements
 
