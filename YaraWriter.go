@@ -71,6 +71,6 @@ func (y *YaraWriter) Close() (err error) {
 
 func (y *YaraWriter) RuleMatching(context *yara.ScanContext, rule *yara.Rule) (bool, error) {
 	y.Infected = true
-	y.Signature = append(y.Signature, rule.Identifier())
+	y.Signature = append(y.Signature, rule.Namespace()+"."+rule.Identifier())
 	return true, nil
 }

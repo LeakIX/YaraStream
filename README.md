@@ -1,4 +1,4 @@
-# Yara/ClamAV Combo
+# Yara/ClamAV/Other Combo
 
 Yara scanner library compatible with `io.TeeReader` for streaming
 
@@ -33,8 +33,7 @@ import (
 )
 
 var (
-	clamdSock   = flag.String("clamd-sock", "", "ClamD socket")
-	yaraRuleDir = flag.String("yara-rules", "", "Yara rules directory")
+	clamdSock = flag.String("clamd-sock", "", "ClamD socket")
 )
 
 func main() {
@@ -46,7 +45,10 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	scanner, err := YaraStream.NewYaraScanner(*yaraRuleDir)
+	scanner, err := YaraStream.NewYaraScanner(
+		YaraStream.RuleDirectory{Namespace: "AbuseCH", Path: "./rules/abusech"},
+		YaraStream.RuleDirectory{Namespace: "ReversingLabs", Path: "./rules/reversinglabs"},
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -60,7 +62,6 @@ func main() {
 	sha256Tee := io.TeeReader(file, sha256Hasher)
 	sha1Tee := io.TeeReader(sha256Tee, sha1Hasher)
 	yaraTee := YaraStream.TeeReaderAutoClose(sha1Tee, yaraWriter)
-	// ScanReader will write to all the Tees every Read()
 	scanResults, err := clamClient.ScanReader(context.Background(), yaraTee)
 	if err != nil {
 		panic(err)
