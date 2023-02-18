@@ -29,6 +29,7 @@ func main() {
 	scanner, err := YaraStream.NewYaraScanner(
 		YaraStream.RuleDirectory{Namespace: "AbuseCH", Path: "./rules/abusech"},
 		YaraStream.RuleDirectory{Namespace: "ReversingLabs", Path: "./rules/reversinglabs"},
+		YaraStream.RuleDirectory{Namespace: "ESET", Path: "./rules/eset"},
 	)
 	if err != nil {
 		panic(err)
@@ -54,9 +55,9 @@ func main() {
 			log.Printf("[ClamAV] Infection found: %s", scanResult.Signature)
 		}
 	}
-	for _, scanResult := range yaraWriter.Signature {
+	for _, scanResult := range yaraWriter.MatchedRules {
 		infected = true
-		log.Printf("[YARA] Infection found: %s", scanResult)
+		log.Printf("[YARA] Infection found: %s/%s", scanResult.Namespace(), scanResult.Identifier())
 	}
 	log.Printf("SHA256: %s", hex.EncodeToString(sha256Hasher.Sum(nil)))
 	log.Printf("SHA1: %s", hex.EncodeToString(sha1Hasher.Sum(nil)))

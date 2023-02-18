@@ -7,7 +7,7 @@ import (
 type YaraWriter struct {
 	scanner      *yara.Scanner
 	Infected     bool
-	Signature    []string
+	MatchedRules []*yara.Rule
 	writeChannel chan []byte
 	doneChannel  chan error
 	byteCount    uint64
@@ -71,6 +71,6 @@ func (y *YaraWriter) Close() (err error) {
 
 func (y *YaraWriter) RuleMatching(context *yara.ScanContext, rule *yara.Rule) (bool, error) {
 	y.Infected = true
-	y.Signature = append(y.Signature, rule.Namespace()+"."+rule.Identifier())
+	y.MatchedRules = append(y.MatchedRules, rule)
 	return true, nil
 }
