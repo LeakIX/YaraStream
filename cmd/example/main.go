@@ -38,7 +38,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	yaraWriter := scanner.NewYaraWriter()
+	yaraWriter := scanner.NewYaraWriter(YaraStream.WithFilenameTip(file.Name()))
 	sha256Hasher := sha256.New()
 	sha1Hasher := sha1.New()
 	sha256Tee := io.TeeReader(file, sha256Hasher)
@@ -46,7 +46,8 @@ func main() {
 	yaraTee := YaraStream.TeeReaderAutoClose(sha1Tee, yaraWriter)
 	scanResults, err := clamClient.ScanReader(context.Background(), yaraTee)
 	if err != nil {
-		panic(err)
+		log.Println(err)
+		io.Copy(io.Discard, yaraTee)
 	}
 	infected := false
 	for _, scanResult := range scanResults {
@@ -61,6 +62,7 @@ func main() {
 	}
 	log.Printf("SHA256: %s", hex.EncodeToString(sha256Hasher.Sum(nil)))
 	log.Printf("SHA1: %s", hex.EncodeToString(sha1Hasher.Sum(nil)))
+	log.Println(yaraWriter.MimeType)
 	if infected {
 		os.Exit(1)
 	}
