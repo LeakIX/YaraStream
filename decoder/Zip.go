@@ -37,7 +37,12 @@ func (d *ZipDecoder) Read(p []byte) (_ int, err error) {
 	return d.reader.Read(p)
 }
 
-func (d *ZipDecoder) Next() (*Entry, error) {
+func (d *ZipDecoder) Next() (_ *Entry, err error) {
+	err = errors.New("error reading zip file")
+	defer func() {
+		// Recover on read issues
+		_ = recover()
+	}()
 	header, err := d.reader.Next()
 	if err != nil {
 		return nil, err
