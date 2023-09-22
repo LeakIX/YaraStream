@@ -2,6 +2,7 @@ package decoder
 
 import (
 	"bytes"
+	"errors"
 	"github.com/krolaw/zipstream"
 	"io"
 	"strings"
@@ -26,7 +27,13 @@ func GetZipDecoder(_ string, reader io.Reader) (Decoder, error) {
 	}, nil
 }
 
-func (d *ZipDecoder) Read(p []byte) (int, error) {
+func (d *ZipDecoder) Read(p []byte) (_ int, err error) {
+	// Set the default error return value
+	err = errors.New("error reading zip file")
+	defer func() {
+		// Recover on read issues
+		_ = recover()
+	}()
 	return d.reader.Read(p)
 }
 
