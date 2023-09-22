@@ -33,6 +33,7 @@ func (s *YaraScanner) NewYaraWriter(options ...func(writer *YaraWriter)) *YaraWr
 		option(writer)
 	}
 	writer.scanner, _ = yara.NewScanner(s.rules)
+	writer.scanner.SetFlags(yara.ScanFlagsProcessMemory)
 	writer.scanner.SetCallback(writer)
 	go func() {
 		writer.doneChannel <- writer.scanner.ScanMemBlocks(writer)
