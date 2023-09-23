@@ -1,10 +1,10 @@
 package decoder
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
 	"github.com/krolaw/zipstream"
-	"io"
 	"strings"
 )
 
@@ -21,7 +21,7 @@ type ZipDecoder struct {
 	reader *zipstream.Reader
 }
 
-func GetZipDecoder(_ string, reader io.Reader) (Decoder, error) {
+func GetZipDecoder(_ string, reader *bufio.Reader) (Decoder, error) {
 	return &ZipDecoder{
 		reader: zipstream.NewReader(reader),
 	}, nil

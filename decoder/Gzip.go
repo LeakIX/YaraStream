@@ -1,6 +1,7 @@
 package decoder
 
 import (
+	"bufio"
 	"bytes"
 	"compress/gzip"
 	"io"
@@ -22,7 +23,7 @@ func init() {
 	})
 }
 
-func GetGzDecoder(filename string, reader io.Reader) (Decoder, error) {
+func GetGzDecoder(filename string, reader *bufio.Reader) (Decoder, error) {
 	gzipReader, err := gzip.NewReader(reader)
 	if err != nil {
 		return nil, err

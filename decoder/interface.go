@@ -3,7 +3,6 @@ package decoder
 import (
 	"bufio"
 	"errors"
-	"io"
 )
 
 type Decoder interface {
@@ -11,19 +10,18 @@ type Decoder interface {
 	Read(p []byte) (int, error)
 }
 
-type Getter func(filename string, reader io.Reader) (Decoder, error)
+type Getter func(filename string, reader *bufio.Reader) (Decoder, error)
 
 var ErrNotSupported = errors.New("not supported")
 
-func GetDecoder(filename string, reader io.Reader) (Decoder, error) {
-	bufferedReader := bufio.NewReaderSize(reader, 16*1024)
-	headerBytes, err := bufferedReader.Peek(4)
+func GetDecoder(filename string, reader *bufio.Reader) (Decoder, error) {
+	headerBytes, err := reader.Peek(4)
 	if err != nil {
 		return nil, err
 	}
 	for _, registration := range Registrations {
 		if registration.MatchFileHeader(filename, headerBytes) {
-			return registration.GetDecoder(filename, bufferedReader)
+			return registration.GetDecoder(filename, reader)
 		}
 	}
 	return nil, ErrNotSupported

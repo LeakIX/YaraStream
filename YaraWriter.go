@@ -1,6 +1,7 @@
 package YaraStream
 
 import (
+	"bufio"
 	"github.com/LeakIX/YaraStream/decoder"
 	"github.com/hillu/go-yara/v4"
 	"io"
@@ -49,6 +50,7 @@ func (y *YaraWriter) First() *yara.MemoryBlock {
 }
 
 func (y *YaraWriter) Next() *yara.MemoryBlock {
+
 	// We work with 16K blocks to give more chances to First()
 	var blockData []byte
 	for {
@@ -64,9 +66,11 @@ func (y *YaraWriter) Next() *yara.MemoryBlock {
 		return nil
 	}
 	mb := &yara.MemoryBlock{
-		Base:      y.byteCount,
-		Size:      uint64(len(blockData)),
-		FetchData: func(buf []byte) { copy(buf, blockData) },
+		Base: y.byteCount,
+		Size: uint64(len(blockData)),
+		FetchData: func(buf []byte) {
+			copy(buf, blockData)
+		},
 	}
 	y.byteCount += mb.Size
 	return mb
@@ -90,7 +94,8 @@ func (y *YaraWriter) exploreContainer() {
 }
 
 func (y *YaraWriter) startContainerScan(reader io.Reader) {
-	dec, err := decoder.GetDecoder(y.filename, reader)
+	bufferedReader := bufio.NewReaderSize(reader, 4*1024)
+	dec, err := decoder.GetDecoder(y.filename, bufferedReader)
 	if err != nil {
 		io.Copy(io.Discard, reader)
 		if err == decoder.ErrNotSupported {
@@ -109,7 +114,7 @@ func (y *YaraWriter) startContainerScan(reader io.Reader) {
 		if !entry.IsFile() {
 			continue
 		}
-		matchedRules, err := y.parentScanner.ScanReader(dec, WithFilenameTip(entry.Filename), withCurrentLevel(y.level+1))
+		matchedRules, err := y.parentScanner.ScanReader(dec, ReaderWithFilenameTip(entry.Filename), ReaderWithCurrentLevel(y.level-1))
 		if err != nil {
 			continue
 		}
@@ -128,7 +133,7 @@ func (y *YaraWriter) Close() (err error) {
 	return err
 }
 
-func (y *YaraWriter) RuleMatching(context *yara.ScanContext, rule *yara.Rule) (bool, error) {
+func (y *YaraWriter) RuleMatching(_ *yara.ScanContext, rule *yara.Rule) (bool, error) {
 	y.Infected = true
 	y.MatchedRules = append(y.MatchedRules, rule)
 	return true, nil

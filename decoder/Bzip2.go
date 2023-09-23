@@ -1,6 +1,7 @@
 package decoder
 
 import (
+	"bufio"
 	"bytes"
 	"compress/bzip2"
 	"io"
@@ -22,7 +23,7 @@ type Bzip2Decoder struct {
 	filename string
 }
 
-func GetBzip2Decoder(filename string, reader io.Reader) (Decoder, error) {
+func GetBzip2Decoder(filename string, reader *bufio.Reader) (Decoder, error) {
 	bzReader := bzip2.NewReader(reader)
 	return &Bzip2Decoder{
 		done:     false,

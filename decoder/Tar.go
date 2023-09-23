@@ -2,7 +2,7 @@ package decoder
 
 import (
 	"archive/tar"
-	"io"
+	"bufio"
 	"strings"
 )
 
@@ -19,7 +19,7 @@ type TarDecoder struct {
 	reader *tar.Reader
 }
 
-func GetTarDecoder(_ string, reader io.Reader) (Decoder, error) {
+func GetTarDecoder(_ string, reader *bufio.Reader) (Decoder, error) {
 	return &TarDecoder{
 		reader: tar.NewReader(reader),
 	}, nil
