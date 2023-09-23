@@ -20,18 +20,20 @@ type YaraReader struct {
 	Infected       bool
 	filename       string
 	level          int
+	maxBlockSize   int
 }
 
+// ScanReader Will scan a given reader until EOF or an error happens. It will scan archives.
 func (s *YaraScanner) ScanReader(reader io.Reader, opts ...func(writer *YaraReader)) ([]*yara.Rule, error) {
-	bufferedReader := bufio.NewReaderSize(reader, 16*1024)
 	testReader := &YaraReader{
-		r:     bufferedReader,
-		level: 10,
+		level:        10,
+		maxBlockSize: 16 * 1024,
 	}
 	for _, option := range opts {
 		option(testReader)
 	}
-	dec, err := decoder.GetDecoder("", testReader.r)
+	testReader.r = bufio.NewReaderSize(reader, testReader.maxBlockSize)
+	dec, err := decoder.GetDecoder(testReader.filename, testReader.r)
 	if err == nil {
 		if testReader.level < 1 {
 			return nil, nil
@@ -42,7 +44,11 @@ func (s *YaraScanner) ScanReader(reader io.Reader, opts ...func(writer *YaraRead
 				return testReader.mrs, nil
 			}
 			if entry.IsFile() {
-				partResults, _ := s.ScanReader(dec, ReaderWithFilenameTip(entry.Filename), ReaderWithCurrentLevel(testReader.level-1))
+				partResults, _ := s.ScanReader(dec,
+					WithFilenameTip(entry.Filename),
+					WithMaxLevel(testReader.level-1),
+					WithBlockSize(testReader.maxBlockSize),
+				)
 				testReader.mrs = append(testReader.mrs, partResults...)
 			}
 		}
@@ -51,13 +57,14 @@ func (s *YaraScanner) ScanReader(reader io.Reader, opts ...func(writer *YaraRead
 	defer testReader.scanner.Destroy()
 	testReader.scanner.SetFlags(yara.ScanFlagsProcessMemory)
 	testReader.scanner.SetCallback(testReader)
-	testReader.buf = make([]byte, 16*1024)
-	testReader.firstBlockData = make([]byte, 16*1024)
+	testReader.buf = make([]byte, testReader.maxBlockSize)
+	testReader.firstBlockData = make([]byte, testReader.maxBlockSize)
 	err = testReader.scanner.ScanMemBlocks(testReader)
 
 	return testReader.mrs, err
 }
 
+// First Will fetch the first block and cache it in our reader for further calls
 func (s *YaraReader) First() *yara.MemoryBlock {
 	if s.firstBlock == nil {
 		s.firstBlock = s.Next()
@@ -71,6 +78,7 @@ func (s *YaraReader) First() *yara.MemoryBlock {
 	return s.firstBlock
 }
 
+// Next Will fetch the next block for scanning
 func (s *YaraReader) Next() *yara.MemoryBlock {
 	n, err := s.r.Read(s.buf)
 	if err != nil && n == 0 {
@@ -85,29 +93,40 @@ func (s *YaraReader) Next() *yara.MemoryBlock {
 	}
 }
 
+// RuleMatching will be called by the engine when a rule is matched
 func (y *YaraReader) RuleMatching(_ *yara.ScanContext, rule *yara.Rule) (bool, error) {
 	y.Infected = true
 	y.mrs = append(y.mrs, rule)
 	return true, nil
 }
 
+// copy Helper for Next()
 func (s *YaraReader) copy(buf []byte) {
 	copy(buf, s.buf[:s.length])
 }
+
+// first Helper for First()
 func (s *YaraReader) first(buf []byte) {
 	copy(buf, s.firstBlockData[:s.firstBlock.Size])
-	//log.Println(s.filename, s.firstBlock.Base, s.firstBlock.Size, string(buf))
-
 }
 
-func ReaderWithFilenameTip(filename string) func(writer *YaraReader) {
+// WithFilenameTip Will tip the Decoder on possible archive types
+func WithFilenameTip(filename string) func(writer *YaraReader) {
 	return func(writer *YaraReader) {
 		writer.filename = filename
 	}
 }
 
-func ReaderWithCurrentLevel(level int) func(writer *YaraReader) {
+// WithMaxLevel Will prevent the Reader to inspect archives under and given level
+func WithMaxLevel(level int) func(writer *YaraReader) {
 	return func(writer *YaraReader) {
 		writer.level = level
+	}
+}
+
+// WithBlockSize Sets the default buffer and block size for in-memory scanning
+func WithBlockSize(size int) func(writer *YaraReader) {
+	return func(writer *YaraReader) {
+		writer.maxBlockSize = size
 	}
 }

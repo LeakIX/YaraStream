@@ -17,6 +17,7 @@ type RuleDirectory struct {
 	Path      string
 }
 
+// NewYaraScanner Will return a new scanner with rules compiled
 func NewYaraScanner(ruleDirectories ...RuleDirectory) (*YaraScanner, error) {
 	scanner := &YaraScanner{}
 	compiler, err := yara.NewCompiler()

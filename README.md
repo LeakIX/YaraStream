@@ -1,18 +1,15 @@
-# Yara/ClamAV/Other Combo
+# Yara scanner for Golang
 
-Yara scanner library compatible with `io.TeeReader` for streaming
+Yara scanner library compatible with `io.Reader` for streaming
+
+## Features
+
+- Read multiple rules for multiple directories
+- Scan inside archives with maximum depth
 
 ## Requirements
 
 All requirements from [github.com/hillu/go-yara](https://github.com/hillu/go-yara) apply
-
-## Implementation
-
-### Must implement WriteCloser
-
-When using a Tee reader, the `TeeReaderAutoClose` should be used to clean resources.
-
-Make sure to call `Close()` if you're doing a custom implementation.
 
 ## Example
 
@@ -20,68 +17,83 @@ Make sure to call `Close()` if you're doing a custom implementation.
 package main
 
 import (
-	"context"
 	"crypto/sha1"
 	"crypto/sha256"
-	"encoding/hex"
 	"flag"
 	"github.com/LeakIX/YaraStream"
-	"github.com/elvinchan/clamd"
 	"io"
+	"io/fs"
 	"log"
 	"os"
+	"path/filepath"
+	"runtime"
+	"sync"
 )
 
-var (
-	clamdSock = flag.String("clamd-sock", "", "ClamD socket")
-)
+var yaraScanner *YaraStream.YaraScanner
+var fileChan = make(chan string)
+var wg sync.WaitGroup
 
 func main() {
+	var err error
 	flag.Parse()
 	if len(flag.Args()) != 1 {
 		log.Fatal("You must provide a file to scan")
 	}
-	clamClient, err := clamd.NewClient("unix", *clamdSock)
-	if err != nil {
-		panic(err)
-	}
-	scanner, err := YaraStream.NewYaraScanner(
+	yaraScanner, err = YaraStream.NewYaraScanner(
 		YaraStream.RuleDirectory{Namespace: "AbuseCH", Path: "./rules/abusech"},
 		YaraStream.RuleDirectory{Namespace: "ReversingLabs", Path: "./rules/reversinglabs"},
 		YaraStream.RuleDirectory{Namespace: "ESET", Path: "./rules/eset"},
+		YaraStream.RuleDirectory{Namespace: "AlienVault", Path: "./rules/otx"},
 	)
 	if err != nil {
 		panic(err)
 	}
-	file, err := os.Open(flag.Arg(0))
+
+	for w := 1; w <= runtime.NumCPU(); w++ {
+		go worker()
+	}
+	err = filepath.Walk(flag.Arg(0), func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if info.IsDir() || !info.Mode().IsRegular() {
+			return nil
+		}
+		wg.Add(1)
+		fileChan <- path
+		return nil
+	})
+
 	if err != nil {
 		panic(err)
 	}
-	yaraWriter := scanner.NewYaraWriter()
+	wg.Wait()
+}
+
+func worker() {
+	for filePath := range fileChan {
+		scanFile(filePath)
+		wg.Done()
+	}
+}
+
+func scanFile(path string) error {
+	log.Printf("Scanning %s", path)
+	file, err := os.Open(path)
+	if err != nil {
+		log.Println(err)
+		return nil
+	}
 	sha256Hasher := sha256.New()
 	sha1Hasher := sha1.New()
 	sha256Tee := io.TeeReader(file, sha256Hasher)
 	sha1Tee := io.TeeReader(sha256Tee, sha1Hasher)
-	yaraTee := YaraStream.TeeReaderAutoClose(sha1Tee, yaraWriter)
-	scanResults, err := clamClient.ScanReader(context.Background(), yaraTee)
-	if err != nil {
-		panic(err)
+	matches, err := yaraScanner.ScanReader(sha1Tee, YaraStream.WithFilenameTip(path), YaraStream.WithMaxLevel(3))
+	for _, scanResult := range matches {
+		log.Printf("[YARA] Infection found: %s/%s in %s\n", scanResult.Namespace(), scanResult.Identifier(), path)
 	}
-	infected := false
-	for _, scanResult := range scanResults {
-		if scanResult.Status == "FOUND" {
-			infected = true
-			log.Printf("[ClamAV] Infection found: %s", scanResult.Signature)
-		}
-	}
-	for _, scanResult := range yaraWriter.MatchedRules {
-		infected = true
-		log.Printf("[YARA] Infection found: %s/%s", scanResult.Namespace(), scanResult.Identifier())
-	}
-	log.Printf("SHA256: %s", hex.EncodeToString(sha256Hasher.Sum(nil)))
-	log.Printf("SHA1: %s", hex.EncodeToString(sha1Hasher.Sum(nil)))
-	if infected {
-		os.Exit(1)
-	}
+	return nil
 }
+
 ```

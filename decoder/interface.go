@@ -5,8 +5,11 @@ import (
 	"errors"
 )
 
+// Decoder is an interface for decoding archive containers
 type Decoder interface {
+	// Next will advance the container to the next entry and return its metadata
 	Next() (*Entry, error)
+	// Read is an io.Reader implementation on the current entry
 	Read(p []byte) (int, error)
 }
 
@@ -14,6 +17,7 @@ type Getter func(filename string, reader *bufio.Reader) (Decoder, error)
 
 var ErrNotSupported = errors.New("not supported")
 
+// GetDecoder will return the proper container decoder for a given reader
 func GetDecoder(filename string, reader *bufio.Reader) (Decoder, error) {
 	headerBytes, err := reader.Peek(4)
 	if err != nil {
