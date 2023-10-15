@@ -15,6 +15,7 @@ type YaraScanner struct {
 type RuleDirectory struct {
 	Namespace string
 	Path      string
+	Excluded  []string
 }
 
 // NewYaraScanner Will return a new scanner with rules compiled
@@ -41,7 +42,7 @@ func (s *YaraScanner) addDirectory(compiler *yara.Compiler, ruleDirectory RuleDi
 		if err != nil {
 			return err
 		}
-		if !info.IsDir() && (filepath.Ext(path) == ".yar" || filepath.Ext(path) == ".yara") {
+		if !info.IsDir() && (filepath.Ext(path) == ".yar" || filepath.Ext(path) == ".yara") && !ruleDirectory.isExcluded(filepath.Base(path)) {
 			ruleFile, err := os.Open(path)
 			if err != nil {
 				return err
@@ -54,4 +55,13 @@ func (s *YaraScanner) addDirectory(compiler *yara.Compiler, ruleDirectory RuleDi
 		}
 		return nil
 	})
+}
+
+func (s RuleDirectory) isExcluded(filename string) bool {
+	for _, excludedFilename := range s.Excluded {
+		if filename == excludedFilename {
+			return true
+		}
+	}
+	return false
 }
