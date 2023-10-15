@@ -21,7 +21,7 @@ type YaraReader struct {
 	filename       string
 	level          int
 	maxBlockSize   int
-	yaraVars       map[string]string
+	yaraVars       map[string]interface{}
 }
 
 type YaraReaderOpt func(writer *YaraReader)
@@ -31,7 +31,7 @@ func (s *YaraScanner) ScanReader(reader io.Reader, opts ...YaraReaderOpt) ([]*ya
 	testReader := &YaraReader{
 		level:        10,
 		maxBlockSize: 16 * 1024,
-		yaraVars:     make(map[string]string),
+		yaraVars:     make(map[string]interface{}),
 	}
 	for _, option := range opts {
 		option(testReader)
@@ -143,7 +143,7 @@ func WithBlockSize(size int) YaraReaderOpt {
 }
 
 // WithYaraVar Sets an external variable to be passed to Yara rules
-func WithYaraVar(varKey, varValue string) YaraReaderOpt {
+func WithYaraVar(varKey string, varValue interface{}) YaraReaderOpt {
 	return func(reader *YaraReader) {
 		reader.yaraVars[varKey] = varValue
 	}
