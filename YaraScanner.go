@@ -16,6 +16,7 @@ type RuleDirectory struct {
 	Namespace string
 	Path      string
 	Excluded  []string
+	Variables map[string]interface{}
 }
 
 // NewYaraScanner Will return a new scanner with rules compiled
@@ -38,6 +39,13 @@ func NewYaraScanner(ruleDirectories ...RuleDirectory) (*YaraScanner, error) {
 }
 
 func (s *YaraScanner) addDirectory(compiler *yara.Compiler, ruleDirectory RuleDirectory) error {
+	// Setting default variables
+	for varKey, varValue := range ruleDirectory.Variables {
+		err := compiler.DefineVariable(varKey, varValue)
+		if err != nil {
+			return err
+		}
+	}
 	return filepath.Walk(ruleDirectory.Path, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
