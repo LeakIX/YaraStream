@@ -21,13 +21,17 @@ type YaraReader struct {
 	filename       string
 	level          int
 	maxBlockSize   int
+	yaraVars       map[string]string
 }
 
+type YaraReaderOpt func(writer *YaraReader)
+
 // ScanReader Will scan a given reader until EOF or an error happens. It will scan archives.
-func (s *YaraScanner) ScanReader(reader io.Reader, opts ...func(writer *YaraReader)) ([]*yara.Rule, error) {
+func (s *YaraScanner) ScanReader(reader io.Reader, opts ...YaraReaderOpt) ([]*yara.Rule, error) {
 	testReader := &YaraReader{
 		level:        10,
 		maxBlockSize: 16 * 1024,
+		yaraVars:     make(map[string]string),
 	}
 	for _, option := range opts {
 		option(testReader)
@@ -57,6 +61,12 @@ func (s *YaraScanner) ScanReader(reader io.Reader, opts ...func(writer *YaraRead
 	defer testReader.scanner.Destroy()
 	testReader.scanner.SetFlags(yara.ScanFlagsProcessMemory)
 	testReader.scanner.SetCallback(testReader)
+	for varKey, varValue := range testReader.yaraVars {
+		err = testReader.scanner.DefineVariable(varKey, varValue)
+		if err != nil {
+			return nil, err
+		}
+	}
 	testReader.buf = make([]byte, testReader.maxBlockSize)
 	testReader.firstBlockData = make([]byte, testReader.maxBlockSize)
 	err = testReader.scanner.ScanMemBlocks(testReader)
@@ -111,22 +121,30 @@ func (s *YaraReader) first(buf []byte) {
 }
 
 // WithFilenameTip Will tip the Decoder on possible archive types
-func WithFilenameTip(filename string) func(writer *YaraReader) {
-	return func(writer *YaraReader) {
-		writer.filename = filename
+func WithFilenameTip(filename string) YaraReaderOpt {
+	return func(reader *YaraReader) {
+		reader.filename = filename
+		reader.yaraVars["filename"] = filename
 	}
 }
 
 // WithMaxLevel Will prevent the Reader to inspect archives under and given level
-func WithMaxLevel(level int) func(writer *YaraReader) {
-	return func(writer *YaraReader) {
-		writer.level = level
+func WithMaxLevel(level int) YaraReaderOpt {
+	return func(reader *YaraReader) {
+		reader.level = level
 	}
 }
 
 // WithBlockSize Sets the default buffer and block size for in-memory scanning
-func WithBlockSize(size int) func(writer *YaraReader) {
-	return func(writer *YaraReader) {
-		writer.maxBlockSize = size
+func WithBlockSize(size int) YaraReaderOpt {
+	return func(reader *YaraReader) {
+		reader.maxBlockSize = size
+	}
+}
+
+// WithYaraVar Sets an external variable to be passed to Yara rules
+func WithYaraVar(varKey, varValue string) YaraReaderOpt {
+	return func(reader *YaraReader) {
+		reader.yaraVars[varKey] = varValue
 	}
 }
