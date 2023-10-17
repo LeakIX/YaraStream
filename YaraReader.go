@@ -5,6 +5,7 @@ import (
 	"github.com/LeakIX/YaraStream/decoder"
 	"github.com/hillu/go-yara/v4"
 	"io"
+	"path/filepath"
 )
 
 type YaraReader struct {
@@ -125,6 +126,7 @@ func WithFilenameTip(filename string) YaraReaderOpt {
 	return func(reader *YaraReader) {
 		reader.filename = filename
 		reader.yaraVars["filename"] = filename
+		reader.yaraVars["extension"] = filepath.Ext(filename)
 	}
 }
 
